@@ -5,6 +5,7 @@ import hudson.Util;
 import hudson.model.Descriptor;
 import hudson.model.User;
 import hudson.security.GroupDetails;
+import hudson.security.UserMayOrMayNotExistException;
 import hudson.security.SecurityRealm;
 
 import java.io.IOException;
@@ -162,8 +163,8 @@ public class RedmineSecurityRealm extends SecurityRealm {
             }
         }, new UserDetailsService() {
             @Override
-            public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException, DataAccessException {
-                throw new UsernameNotFoundException(username);
+            public UserDetails loadUserByUsername(String username) throws UserMayOrMayNotExistException, DataAccessException {
+                throw new UserMayOrMayNotExistException("Cannot verify users in this context");
             }
         });
     }
@@ -212,7 +213,7 @@ public class RedmineSecurityRealm extends SecurityRealm {
             writer.startNode("redmineUrl");
             writer.setValue(realm.getRedmineUrl());
             writer.endNode();
-            
+
             writer.startNode("clientID");
             writer.setValue(realm.getClientID());
             writer.endNode();
