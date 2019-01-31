@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import jenkins.security.SecurityListener;
 import org.acegisecurity.Authentication;
 import org.acegisecurity.AuthenticationException;
 import org.acegisecurity.AuthenticationManager;
@@ -148,6 +149,12 @@ public class RedmineSecurityRealm extends SecurityRealm {
                 u.setFullName(auth.getName());
             }
 
+            UserDetails userDetails = loadUserByUsername(auth.getName());
+            if (userDetails != null) {
+                SecurityListener.fireAuthenticated(userDetails);
+            } else {
+                LOGGER.log(Level.SEVERE, "doFinishLogin() userDetails = null");
+            }
         } else {
             LOGGER.log(Level.SEVERE, "doFinishLogin() accessToken = null");
         }
