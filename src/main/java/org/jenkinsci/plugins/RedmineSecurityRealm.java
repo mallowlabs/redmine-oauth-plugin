@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import jenkins.security.SecurityListener;
 import org.acegisecurity.Authentication;
 import org.acegisecurity.AuthenticationException;
 import org.acegisecurity.AuthenticationManager;
@@ -38,7 +37,9 @@ import hudson.model.User;
 import hudson.security.GroupDetails;
 import hudson.security.SecurityRealm;
 import hudson.security.UserMayOrMayNotExistException;
+import hudson.util.Secret;
 import jenkins.model.Jenkins;
+import jenkins.security.SecurityListener;
 
 public class RedmineSecurityRealm extends SecurityRealm {
 
@@ -48,14 +49,17 @@ public class RedmineSecurityRealm extends SecurityRealm {
 
     private String redmineUrl;
     private String clientID;
+    @Deprecated
     private String clientSecret;
+    private Secret secretClientSecret;
 
     @DataBoundConstructor
-    public RedmineSecurityRealm(String redmineUrl, String clientID, String clientSecret) {
+    public RedmineSecurityRealm(String redmineUrl, String clientID, String clientSecret, Secret secretClientSecret) {
         super();
         this.redmineUrl = redmineUrl;
         this.clientID = Util.fixEmptyAndTrim(clientID);
         this.clientSecret = Util.fixEmptyAndTrim(clientSecret);
+        this.secretClientSecret = secretClientSecret;
     }
 
     public RedmineSecurityRealm() {
@@ -94,6 +98,7 @@ public class RedmineSecurityRealm extends SecurityRealm {
     /**
      * @return the clientSecret
      */
+    @Deprecated
     public String getClientSecret() {
         return clientSecret;
     }
@@ -101,11 +106,31 @@ public class RedmineSecurityRealm extends SecurityRealm {
     /**
      * @param clientSecret the clientSecret to set
      */
+    @Deprecated
     public void setClientSecret(String clientSecret) {
         this.clientSecret = clientSecret;
     }
 
-    public HttpResponse doCommenceLogin(StaplerRequest request, @Header("Referer") final String referer) throws IOException {
+    /**
+     * @return the secretClientSecret
+     */
+    public Secret getSecretClientSecret() {
+        // for backward compatibility
+        if (StringUtils.isNotEmpty(clientSecret)) {
+            return Secret.fromString(clientSecret);
+        }
+        return secretClientSecret;
+    }
+
+    /**
+     * @param secretClientSecret the secretClientSecret to set
+     */
+    public void setSecretClientSecret(Secret secretClientSecret) {
+        this.secretClientSecret = secretClientSecret;
+    }
+
+    public HttpResponse doCommenceLogin(StaplerRequest request, @Header("Referer") final String referer)
+            throws IOException {
 
         request.getSession().setAttribute(REFERER_ATTRIBUTE, referer);
 
@@ -119,7 +144,7 @@ public class RedmineSecurityRealm extends SecurityRealm {
         }
         String callback = rootUrl + "/securityRealm/finishLogin";
 
-        RedmineApiService redmineApiService = new RedmineApiService(redmineUrl, clientID, clientSecret, callback);
+        RedmineApiService redmineApiService = new RedmineApiService(redmineUrl, clientID, getSecretClientSecret().getPlainText(), callback);
 
         Token requestToken = redmineApiService.createRquestToken();
         request.getSession().setAttribute(ACCESS_TOKEN_ATTRIBUTE, requestToken);
@@ -134,14 +159,18 @@ public class RedmineSecurityRealm extends SecurityRealm {
             LOGGER.log(Level.SEVERE, "doFinishLogin() code = null");
             return HttpResponses.redirectToContextRoot();
         }
+        
+        String rawClientSecret = getSecretClientSecret().getPlainText();
 
         Token requestToken = (Token) request.getSession().getAttribute(ACCESS_TOKEN_ATTRIBUTE);
 
-        Token accessToken = new RedmineApiService(redmineUrl, clientID, clientSecret).getTokenByAuthorizationCode(code, requestToken);
+        Token accessToken = new RedmineApiService(redmineUrl, clientID, rawClientSecret).getTokenByAuthorizationCode(code,
+                requestToken);
 
         if (!accessToken.isEmpty()) {
 
-            RedmineAuthenticationToken auth = new RedmineAuthenticationToken(accessToken, redmineUrl, clientID, clientSecret);
+            RedmineAuthenticationToken auth = new RedmineAuthenticationToken(accessToken, redmineUrl, clientID,
+                    rawClientSecret);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             User u = User.current();
@@ -181,7 +210,8 @@ public class RedmineSecurityRealm extends SecurityRealm {
             }
         }, new UserDetailsService() {
             @Override
-            public UserDetails loadUserByUsername(String username) throws UserMayOrMayNotExistException, DataAccessException {
+            public UserDetails loadUserByUsername(String username)
+                    throws UserMayOrMayNotExistException, DataAccessException {
                 throw new UserMayOrMayNotExistException("Cannot verify users in this context");
             }
         });
@@ -197,7 +227,8 @@ public class RedmineSecurityRealm extends SecurityRealm {
         if (!(token instanceof RedmineAuthenticationToken)) {
             throw new UserMayOrMayNotExistException("Unexpected authentication type: " + token);
         }
-        result = new RedmineApiService(redmineUrl, clientID, clientSecret).getUserByToken(((RedmineAuthenticationToken) token).getAccessToken());
+        result = new RedmineApiService(redmineUrl, clientID, getSecretClientSecret().getPlainText())
+                .getUserByToken(((RedmineAuthenticationToken) token).getAccessToken());
         if (result == null) {
             throw new UsernameNotFoundException("User does not exist for login: " + username);
         }
@@ -239,8 +270,8 @@ public class RedmineSecurityRealm extends SecurityRealm {
             writer.setValue(realm.getClientID());
             writer.endNode();
 
-            writer.startNode("clientSecret");
-            writer.setValue(realm.getClientSecret());
+            writer.startNode("secretClientSecret");
+            writer.setValue(realm.getSecretClientSecret().getEncryptedValue());
             writer.endNode();
         }
 
@@ -291,6 +322,8 @@ public class RedmineSecurityRealm extends SecurityRealm {
                 realm.setClientID(value);
             } else if (node.equalsIgnoreCase("clientsecret")) {
                 realm.setClientSecret(value);
+            } else if (node.equalsIgnoreCase("secretclientsecret")) {
+                realm.setSecretClientSecret(Secret.fromString(value));
             } else {
                 throw new ConversionException("invalid node value = " + node);
             }
