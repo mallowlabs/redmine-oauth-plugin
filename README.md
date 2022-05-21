@@ -1,4 +1,4 @@
-Jenkins Redmine OAuth Plugin ![build status](https://circleci.com/gh/mallowlabs/redmine-oauth-plugin/tree/master.svg?style=shield)
+Jenkins Redmine OAuth Plugin
 ============================
 
 Overview
