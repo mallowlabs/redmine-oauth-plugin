@@ -15,7 +15,7 @@
 	<description>A Jenkins authentication plugin that delegates to Redmine OAuth</description>
 	<packaging>hpi</packaging>
 
-	<url>https://wiki.jenkins-ci.org/display/JENKINS/Bitbucket+OAuth+Plugin</url>
+	<url>https://github.com/mallowlabs/redmine-oauth-plugin</url>
 
 	<licenses>
 		<license>
