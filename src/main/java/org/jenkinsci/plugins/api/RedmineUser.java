@@ -7,10 +7,6 @@ import org.acegisecurity.userdetails.UserDetails;
 
 public class RedmineUser implements UserDetails {
 
-    public class RedmineUserResponce {
-        public RedmineUser user;
-    }
-
     public String login;
     public String firstname;
     public String lastname;

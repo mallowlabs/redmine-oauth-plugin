@@ -1,7 +1,6 @@
 package org.jenkinsci.plugins.api;
 
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.plugins.api.RedmineUser.RedmineUserResponce;
 import org.scribe.builder.ServiceBuilder;
 import org.scribe.model.OAuthRequest;
 import org.scribe.model.Response;
@@ -10,7 +9,7 @@ import org.scribe.model.Verb;
 import org.scribe.model.Verifier;
 import org.scribe.oauth.OAuthService;
 
-import com.google.gson.Gson;
+import net.sf.json.JSONObject;
 
 public class RedmineApiService {
 
@@ -49,10 +48,9 @@ public class RedmineApiService {
         service.signRequest(accessToken, request);
         Response response = request.send();
         String json = response.getBody();
-        Gson gson = new Gson();
-        RedmineUserResponce userResponce = gson.fromJson(json, RedmineUserResponce.class);
-        if (userResponce != null) {
-            return userResponce.user;
+        RedmineUserResponse userResponse = RedmineUserResponse.fromJsonString(json);
+        if (userResponse != null) {
+            return userResponse.user;
         } else {
             return null;
         }
